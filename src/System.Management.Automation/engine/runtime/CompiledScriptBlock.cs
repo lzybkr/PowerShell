@@ -16,7 +16,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
 #if LEGACYTELEMETRY
 using Microsoft.PowerShell.Telemetry.Internal;
 #endif
@@ -40,11 +39,15 @@ namespace System.Management.Automation
 
     internal class CompiledScriptBlockData
     {
+        internal static ConditionalWeakTable<object, CompiledScriptBlockData> IdToScriptBlock
+            = new ConditionalWeakTable<object, CompiledScriptBlockData>();
+
         internal CompiledScriptBlockData(IParameterMetadataProvider ast, bool isFilter)
         {
             _ast = ast;
             this.IsFilter = isFilter;
             this.Id = Guid.NewGuid();
+            IdToScriptBlock.AddOrUpdate(this.Id, this);
         }
 
         internal CompiledScriptBlockData(string scriptText, bool isProductCode)
@@ -52,6 +55,7 @@ namespace System.Management.Automation
             this.IsProductCode = isProductCode;
             _scriptText = scriptText;
             this.Id = Guid.NewGuid();
+            IdToScriptBlock.AddOrUpdate(this.Id, this);
         }
 
         internal bool Compile(bool optimized)
@@ -537,6 +541,11 @@ namespace System.Management.Automation
         }
 
         internal static ScriptBlock EmptyScriptBlock = ScriptBlock.CreateDelayParsedScriptBlock(string.Empty, isProductCode: true);
+
+        internal static CompiledScriptBlockData GetDataFromId(Guid id)
+        {
+            return CompiledScriptBlockData.IdToScriptBlock.TryGetValue(id, out var result) ? result : null;
+        }
 
         internal static ScriptBlock Create(Parser parser, string fileName, string fileContents)
         {
